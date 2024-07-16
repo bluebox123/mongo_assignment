@@ -30,7 +30,7 @@ const HomePage = () => {
                 <div key={index}>
                     <div className="mb-5">
                         <a href={homepageContent.banner.link}>
-                            <img src={homepageContent.banner.imageUrl} alt="Banner" className="w-full rounded" />
+                            <img src={homepageContent.banner.imageUrl} alt="Banner" className="w-full h-56 rounded" />
                         </a>
                     </div>
                     <h2 className="text-2xl font-bold mb-5">Products</h2>

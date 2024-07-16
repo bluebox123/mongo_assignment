@@ -6,7 +6,6 @@ const router = express.Router();
 
 // Get the contents of the homepage
 router.get("/homepage", async (req, res) => {
-    console.log("GET /api/homepage");
     let collection = await db.collection("homepage");
     let results = await collection.find({})
         .limit(50)
@@ -32,6 +31,139 @@ router.post("/homepage", async (req, res) => {
     } catch (error) {
         console.error("Error inserting document:", error);
         res.status(500).send({ error: "Error inserting document" });
+    }
+});
+
+// Get product details by ID
+router.get("/products/:id", async (req, res) => {
+    const productId = req.params.id;
+
+    try {
+        let collection = await db.collection("homepage");
+        const homepageContent = await collection.findOne({});
+        if (!homepageContent) {
+            return res.status(404).send({ error: "Homepage content not found" });
+        }
+
+        const product = homepageContent.products.find(p => p.id === productId);
+        if (!product) {
+            return res.status(404).send({ error: "Product not found" });
+        }
+
+        res.status(200).send(product);
+    } catch (error) {
+        console.error("Error fetching product details:", error);
+        res.status(500).send({ error: "Error fetching product details" });
+    }
+});
+
+// Add product to cart
+router.post("/cart", async (req, res) => {
+    const { productId, quantity } = req.body;
+
+    if (!productId || !quantity || quantity <= 0) {
+        return res.status(400).send({ error: "Invalid product ID or quantity" });
+    }
+
+    try {
+        const collection = await db.collection("homepage");
+        const homepageContent = await collection.findOne({});
+        if (!homepageContent) {
+            return res.status(404).send({ error: "Homepage content not found" });
+        }
+
+        const product = homepageContent.products.find(p => p.id === productId);
+        if (!product) {
+            return res.status(404).send({ error: "Product not found" });
+        }
+
+        // Add the product to the cart
+        const cartCollection = await db.collection("cart");
+        const result = await cartCollection.insertOne({
+            productId: product.id,
+            quantity: quantity,
+            addedAt: new Date(),
+        });
+
+        res.status(201).send(result.ops[0]);
+    } catch (error) {
+        console.error("Error adding product to cart:", error);
+        res.status(500).send({ error: "Error adding product to cart" });
+    }
+});
+
+// Remove product from cart
+router.delete("/cart/:productId", async (req, res) => {
+    const productId = req.params.productId;
+
+    try {
+        const cartCollection = await db.collection("cart");
+        const result = await cartCollection.deleteOne({ productId: productId });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).send({ error: "Product not found in cart" });
+        }
+
+        res.status(200).send({ message: "Product removed from cart" });
+    } catch (error) {
+        console.error("Error removing product from cart:", error);
+        res.status(500).send({ error: "Error removing product from cart" });
+    }
+});
+
+// Update product quantity in cart
+router.put("/cart/:productId", async (req, res) => {
+    const productId = req.params.productId;
+    const { quantity } = req.body;
+
+    if (!quantity || quantity <= 0) {
+        return res.status(400).send({ error: "Invalid quantity" });
+    }
+
+    try {
+        const cartCollection = await db.collection("cart");
+        const result = await cartCollection.updateOne(
+            { productId: productId },
+            { $set: { quantity: quantity } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).send({ error: "Product not found in cart" });
+        }
+
+        res.status(200).send({ message: "Product quantity updated in cart" });
+    } catch (error) {
+        console.error("Error updating product quantity in cart:", error);
+        res.status(500).send({ error: "Error updating product quantity in cart" });
+    }
+});
+
+// Get current state of the cart
+router.get("/cart", async (req, res) => {
+    try {
+        const cartCollection = await db.collection("cart");
+        const cartItems = await cartCollection.find({}).toArray();
+
+        let totalItems = 0;
+        let totalPrice = 0;
+
+        if (cartItems.length > 0) {
+            const collection = await db.collection("homepage");
+            const homepageContent = await collection.findOne({});
+
+            for (const item of cartItems) {
+                const product = homepageContent.products.find(p => p.id === item.productId);
+                if (product) {
+                    totalItems += item.quantity;
+                    totalPrice += item.quantity * product.price;
+                }
+            }
+        }
+
+        res.status(200).send({ cartItems, totalItems, totalPrice });
+    } catch (error) {
+        console.error("Error fetching cart state:", error);
+        res.status(500).send({ error: "Error fetching cart state" });
     }
 });
 
