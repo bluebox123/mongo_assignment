@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const HomePage = () => {
-    const [content, setContent] = useState(null);
+    const [content, setContent] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -10,7 +10,6 @@ const HomePage = () => {
         const fetchData = async () => {
             try {
                 const response = await axios.get('/api/homepage');
-                console.log(response.data);
                 setContent(response.data);
             } catch (err) {
                 setError(err.message);
@@ -27,16 +26,16 @@ const HomePage = () => {
 
     return (
         <div className="container mx-auto p-5">
-            {content && (
-                <>
+            {content.length > 0 && content.map((homepageContent, index) => (
+                <div key={index}>
                     <div className="mb-5">
-                        <a href={content.banner.link}>
-                            <img src={content.banner.imageUrl} alt="Banner" className="w-full rounded" />
+                        <a href={homepageContent.banner.link}>
+                            <img src={homepageContent.banner.imageUrl} alt="Banner" className="w-full rounded" />
                         </a>
                     </div>
                     <h2 className="text-2xl font-bold mb-5">Products</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                        {content.products.map(product => (
+                        {homepageContent.products.map(product => (
                             <div key={product.id} className="bg-white p-5 rounded shadow">
                                 <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover mb-4 rounded" />
                                 <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
@@ -45,8 +44,8 @@ const HomePage = () => {
                             </div>
                         ))}
                     </div>
-                </>
-            )}
+                </div>
+            ))}
         </div>
     );
 };
