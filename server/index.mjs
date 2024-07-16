@@ -3,6 +3,7 @@ import cors from "cors";
 import "./loadEnvironment.mjs";
 import "express-async-errors";
 import posts from "./routes/posts.mjs";
+import api from "./routes/api.mjs";
 
 const PORT = process.env.PORT || 5050;
 const app = express();
@@ -12,6 +13,10 @@ app.use(express.json());
 
 // Load the /posts routes
 app.use("/posts", posts);
+
+// Load the /api route
+app.use("/api", api);
+
 
 // Global error handling
 app.use((err, _req, res, next) => {
