@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 const HomePage = () => {
     const [content, setContent] = useState([]);
@@ -30,7 +31,7 @@ const HomePage = () => {
                 <div key={index}>
                     <div className="mb-5">
                         <a href={homepageContent.banner.link}>
-                            <img src={homepageContent.banner.imageUrl} alt="Banner" className="w-full h-56 rounded" />
+                            <img src={homepageContent.banner.imageUrl} alt="Banner" className="w-1/4 h-64 rounded" />
                         </a>
                     </div>
                     <h2 className="text-2xl font-bold mb-5">Products</h2>
@@ -38,7 +39,11 @@ const HomePage = () => {
                         {homepageContent.products.map(product => (
                             <div key={product.id} className="bg-white p-5 rounded shadow">
                                 <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover mb-4 rounded" />
-                                <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
+                                <h3 className="text-xl font-semibold mb-2">
+                                    <Link to={`/product/${product.id}`} className="text-purple-700 hover:underline">
+                                        {product.name}
+                                    </Link>
+                                </h3>
                                 <p className="text-gray-700 mb-4">{product.description}</p>
                                 <p className="text-lg font-bold">${product.price}</p>
                             </div>

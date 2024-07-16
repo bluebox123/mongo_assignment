@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { HiPencil, HiTrash } from "react-icons/hi";
+import { HiTrash } from 'react-icons/hi';
 
-const CartPage = () => {
+const CartPage = ({ onCartUpdate }) => {
     const [cart, setCart] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -13,9 +13,10 @@ const CartPage = () => {
         const fetchCart = async () => {
             try {
                 const response = await axios.get('/api/cart');
-                setCart(response.data.cartItems);
+                setCart(response.data.products);
                 setTotalItems(response.data.totalItems);
                 setTotalPrice(response.data.totalPrice);
+                onCartUpdate(response.data.totalItems); // Update cart count in Navbar
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -24,20 +25,7 @@ const CartPage = () => {
         };
 
         fetchCart();
-    }, []);
-
-    const handleUpdateQuantity = async (productId, quantity) => {
-        try {
-            await axios.put(`/api/cart/${productId}`, { quantity });
-            const updatedCart = cart.map(item =>
-                item.productId === productId ? { ...item, quantity } : item
-            );
-            setCart(updatedCart);
-            updateTotals(updatedCart);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
+    }, [onCartUpdate]);
 
     const handleRemoveProduct = async (productId) => {
         try {
@@ -45,6 +33,7 @@ const CartPage = () => {
             const updatedCart = cart.filter(item => item.productId !== productId);
             setCart(updatedCart);
             updateTotals(updatedCart);
+            onCartUpdate(updatedCart.length); // Update cart count in Navbar
         } catch (err) {
             setError(err.message);
         }
@@ -79,27 +68,13 @@ const CartPage = () => {
                                     <p className="text-lg font-bold">${item.product.price}</p>
                                     <div className="flex items-center mt-2">
                                         <button
-                                            onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}
+                                            onClick={() => handleRemoveProduct(item.productId)}
                                             className="bg-gray-300 text-gray-700 px-2 py-1 rounded mr-2"
-                                            disabled={item.quantity <= 1}
                                         >
-                                            -
-                                        </button>
-                                        <span>{item.quantity}</span>
-                                        <button
-                                            onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}
-                                            className="bg-gray-300 text-gray-700 px-2 py-1 rounded ml-2"
-                                        >
-                                            +
+                                            <HiTrash />
                                         </button>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => handleRemoveProduct(item.productId)}
-                                    className="text-red-500 ml-5"
-                                >
-                                    <HiTrash />
-                                </button>
                             </div>
                         ))}
                     </div>

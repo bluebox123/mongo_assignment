@@ -41,7 +41,7 @@ router.get("/products/:id", async (req, res) => {
     try {
         let collection = await db.collection("homepage");
         const homepageContent = await collection.findOne({});
-        if (!homepageContent) {
+        if (!homepageContent || !Array.isArray(homepageContent.products)) {
             return res.status(404).send({ error: "Homepage content not found" });
         }
 
@@ -68,7 +68,7 @@ router.post("/cart", async (req, res) => {
     try {
         const collection = await db.collection("homepage");
         const homepageContent = await collection.findOne({});
-        if (!homepageContent) {
+        if (!homepageContent || !Array.isArray(homepageContent.products)) {
             return res.status(404).send({ error: "Homepage content not found" });
         }
 
@@ -77,20 +77,41 @@ router.post("/cart", async (req, res) => {
             return res.status(404).send({ error: "Product not found" });
         }
 
-        // Add the product to the cart
+        // Check if the cart exists
         const cartCollection = await db.collection("cart");
-        const result = await cartCollection.insertOne({
-            productId: product.id,
-            quantity: quantity,
-            addedAt: new Date(),
-        });
+        let cart = await cartCollection.findOne({});
 
-        res.status(201).send(result.ops[0]);
+        if (!cart) {
+            // If the cart is null or not defined, create a new cart object
+            cart = {
+                products: []
+            };
+        }
+
+        // Check if the product already exists in the cart
+        const existingProduct = cart.products.find(p => p.productId === productId);
+        if (existingProduct) {
+            // If the product exists, update its quantity
+            existingProduct.quantity += quantity;
+        } else {
+            // If the product does not exist, add it to the cart
+            cart.products.push({
+                productId: product.id,
+                quantity: quantity,
+                addedAt: new Date()
+            });
+        }
+
+        // Save the updated cart back to the database
+        await cartCollection.updateOne({}, { $set: cart }, { upsert: true });
+
+        res.status(201).send(cart);
     } catch (error) {
         console.error("Error adding product to cart:", error);
         res.status(500).send({ error: "Error adding product to cart" });
     }
 });
+
 
 // Remove product from cart
 router.delete("/cart/:productId", async (req, res) => {
@@ -98,9 +119,12 @@ router.delete("/cart/:productId", async (req, res) => {
 
     try {
         const cartCollection = await db.collection("cart");
-        const result = await cartCollection.deleteOne({ productId: productId });
+        const result = await cartCollection.updateOne(
+            {},
+            { $pull: { products: { productId: productId } } }
+        );
 
-        if (result.deletedCount === 0) {
+        if (result.modifiedCount === 0) {
             return res.status(404).send({ error: "Product not found in cart" });
         }
 
@@ -110,6 +134,7 @@ router.delete("/cart/:productId", async (req, res) => {
         res.status(500).send({ error: "Error removing product from cart" });
     }
 });
+
 
 // Update product quantity in cart
 router.put("/cart/:productId", async (req, res) => {
@@ -123,8 +148,8 @@ router.put("/cart/:productId", async (req, res) => {
     try {
         const cartCollection = await db.collection("cart");
         const result = await cartCollection.updateOne(
-            { productId: productId },
-            { $set: { quantity: quantity } }
+            { "products.productId": productId },
+            { $set: { "products.$.quantity": quantity } }
         );
 
         if (result.matchedCount === 0) {
@@ -138,33 +163,53 @@ router.put("/cart/:productId", async (req, res) => {
     }
 });
 
+
 // Get current state of the cart
 router.get("/cart", async (req, res) => {
     try {
         const cartCollection = await db.collection("cart");
-        const cartItems = await cartCollection.find({}).toArray();
+        const cart = await cartCollection.findOne({});
+
+        if (!cart || cart.products.length === 0) {
+            return res.status(200).send({ products: [], totalItems: 0, totalPrice: 0 });
+        }
+
+        const collection = await db.collection("homepage");
+        const homepageContent = await collection.findOne({});
+
+        if (!homepageContent || !Array.isArray(homepageContent.products)) {
+            return res.status(404).send({ error: "Homepage content not found" });
+        }
 
         let totalItems = 0;
         let totalPrice = 0;
 
-        if (cartItems.length > 0) {
-            const collection = await db.collection("homepage");
-            const homepageContent = await collection.findOne({});
-
-            for (const item of cartItems) {
-                const product = homepageContent.products.find(p => p.id === item.productId);
-                if (product) {
-                    totalItems += item.quantity;
-                    totalPrice += item.quantity * product.price;
-                }
+        const cartProducts = cart.products.map(item => {
+            const product = homepageContent.products.find(p => p.id === item.productId);
+            if (product) {
+                totalItems += item.quantity;
+                totalPrice += item.quantity * product.price;
+                return {
+                    productId: item.productId,
+                    quantity: item.quantity,
+                    addedAt: item.addedAt,
+                    product: {
+                        id: product.id,
+                        name: product.name,
+                        description: product.description,
+                        price: product.price,
+                        imageUrl: product.imageUrl
+                    }
+                };
             }
-        }
+        }).filter(Boolean); // Remove any undefined items
 
-        res.status(200).send({ cartItems, totalItems, totalPrice });
+        res.status(200).send({ products: cartProducts, totalItems, totalPrice });
     } catch (error) {
         console.error("Error fetching cart state:", error);
         res.status(500).send({ error: "Error fetching cart state" });
     }
 });
+
 
 export default router;
